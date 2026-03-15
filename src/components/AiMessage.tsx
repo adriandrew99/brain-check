@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react';
 import type { AppData, DayLog } from '../types';
 import { RULES } from '../constants';
-import { saveData } from '../store';
 
 interface AiMessageProps {
   data: AppData;
   todayLog: DayLog;
   streak: number;
-  onMessageSaved: (msg: string) => void;
 }
 
-export default function AiMessage({ data, todayLog, streak, onMessageSaved }: AiMessageProps) {
+export default function AiMessage({ data, todayLog, streak }: AiMessageProps) {
   const [message, setMessage] = useState(todayLog.aiMessage || '');
   const [loading, setLoading] = useState(false);
   const [showKeyInput, setShowKeyInput] = useState(false);
@@ -22,10 +20,6 @@ export default function AiMessage({ data, todayLog, streak, onMessageSaved }: Ai
     }
   }, [todayLog.aiMessage]);
 
-  const rulesHeld = RULES.filter((r) => todayLog.rules[r.key]);
-  const rulesBroken = RULES.filter((r) => !todayLog.rules[r.key]);
-  const anyChecked = rulesHeld.length > 0;
-
   const fetchMessage = async () => {
     if (!apiKey) {
       setShowKeyInput(true);
@@ -34,8 +28,8 @@ export default function AiMessage({ data, todayLog, streak, onMessageSaved }: Ai
 
     setLoading(true);
     try {
-      const heldNames = rulesHeld.map((r) => r.label);
-      const brokeNames = rulesBroken.map((r) => r.label);
+      const heldRules = RULES.filter((r) => todayLog.rules[r.key]).map((r) => r.label);
+      const brokeRules = RULES.filter((r) => !todayLog.rules[r.key]).map((r) => r.label);
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -51,21 +45,14 @@ export default function AiMessage({ data, todayLog, streak, onMessageSaved }: Ai
           messages: [
             {
               role: 'user',
-              content: `You are Brain Check, an AI accountability coach for a dopamine detox app. Give a 2-3 sentence personalised message. Be direct, no fluff. Mix tough love with encouragement.
+              content: `You are the Brain Check AI coach. Give a 2-3 sentence personalised message based on this dopamine detox data. Mix accountability with encouragement. No fluff, be direct.
 
-IMPORTANT: Base your message ONLY on the data below. Do NOT assume or invent anything.
-
-Current streak: ${streak} days (consecutive days with ALL 6 rules held)
+Current streak: ${streak} days
 Health score: ${todayLog.healthScore}/100
-Rules HELD today (checked off): ${heldNames.length > 0 ? heldNames.join(', ') : 'NONE — nothing checked off yet'}
-Rules NOT held today (unchecked): ${brokeNames.length > 0 ? brokeNames.join(', ') : 'None — all held!'}
-Total checked: ${heldNames.length}/${RULES.length}
+Rules held today: ${heldRules.join(', ') || 'None yet'}
+Rules broken today: ${brokeRules.join(', ') || 'None — all held!'}
 
-${heldNames.length === 0 ? 'The user has not checked anything off yet today. Acknowledge this — they may not have done their check-in yet, or they may be struggling. Push them to take action.' : ''}
-${heldNames.length === RULES.length ? 'Perfect day! All rules held. Celebrate this but keep them humble.' : ''}
-${heldNames.length > 0 && heldNames.length < RULES.length ? `They held ${heldNames.length} out of ${RULES.length}. Acknowledge what they did well, but call out the specific rules they broke.` : ''}
-
-Keep it real. Reference specific rules by name.`,
+Keep it real but supportive. Reference specific rules they held or broke.`,
             },
           ],
         }),
@@ -74,7 +61,9 @@ Keep it real. Reference specific rules by name.`,
       const result = await response.json();
       const aiText = result.content?.[0]?.text || 'Keep pushing. Your brain is rewiring.';
       setMessage(aiText);
-      onMessageSaved(aiText);
+
+      // Save to log — caller should persist via onMessage callback if needed
+      todayLog.aiMessage = aiText;
     } catch {
       setMessage('Could not connect to AI. Keep pushing — your brain is rewiring regardless.');
     } finally {
@@ -83,85 +72,57 @@ Keep it real. Reference specific rules by name.`,
   };
 
   const saveKey = () => {
-    const updated = { ...data, apiKey };
-    saveData(updated);
+    data.apiKey = apiKey;
+    localStorage.setItem('brain-check-data', JSON.stringify(data));
     setShowKeyInput(false);
     fetchMessage();
   };
 
   if (showKeyInput) {
     return (
-      <div className="card-solid p-5">
-        <h3 className="font-bold text-sm mb-2">Set Up AI Coach</h3>
-        <p className="text-xs text-[#9ca3af] mb-3">
-          Enter your Anthropic API key for personalised daily coaching. Stored on your device only.
+      <div className="bg-white rounded-2xl p-5 border border-[#e8e4de] shadow-sm">
+        <h3 className="font-bold text-sm mb-3">🔑 Anthropic API Key</h3>
+        <p className="text-xs text-[#8a8680] mb-3">
+          Enter your API key to get personalised AI coaching messages. Your key is stored locally only.
         </p>
         <input
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-ant-..."
-          className="w-full px-4 py-3 rounded-xl border border-[#e8e4de] text-sm mb-3 focus:outline-none focus:border-[#22c55e] bg-[#faf8f5]"
+          className="w-full px-4 py-2.5 rounded-xl border border-[#e8e4de] text-sm mb-3 focus:outline-none focus:border-[#5ecc8b]"
         />
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowKeyInput(false)}
-            className="flex-1 py-2.5 rounded-xl border border-[#e8e4de] font-bold text-sm text-[#9ca3af]"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={saveKey}
-            className="flex-1 py-2.5 rounded-xl bg-[#1a1a1a] text-white font-bold text-sm"
-          >
-            Save
-          </button>
-        </div>
+        <button
+          onClick={saveKey}
+          className="w-full py-2.5 rounded-xl bg-[#2d2a26] text-white font-bold text-sm"
+        >
+          Save & Get Message
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="card-solid p-5 overflow-hidden relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-[20px]">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-        </div>
-      )}
+    <div className="bg-white rounded-2xl p-5 border border-[#e8e4de] shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-            <span className="text-white text-sm">AI</span>
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-[#1a1a1a] leading-tight">Daily Coach</h3>
-            <span className="text-[10px] text-[#9ca3af] font-semibold">Powered by Claude</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🤖</span>
+          <h3 className="font-bold text-sm text-[#2d2a26]">AI Coach</h3>
         </div>
         <button
           onClick={fetchMessage}
           disabled={loading}
-          className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
-            message
-              ? 'text-[#9ca3af] hover:text-[#1a1a1a] hover:bg-[#f0ece6]'
-              : 'bg-[#1a1a1a] text-white'
-          }`}
+          className="text-xs font-semibold text-[#5ecc8b] hover:text-[#4ab87a] disabled:opacity-50"
         >
-          {message ? 'Refresh' : 'Get Message'}
+          {loading ? 'Thinking...' : message ? 'Refresh' : 'Get Message'}
         </button>
       </div>
       {message ? (
-        <p className="text-[14px] text-[#1a1a1a] leading-relaxed">{message}</p>
+        <p className="text-sm text-[#2d2a26] leading-relaxed">{message}</p>
       ) : (
-        <div className="text-center py-3">
-          <p className="text-sm text-[#9ca3af]">
-            {anyChecked ? 'Tap "Get Message" for your daily coaching.' : 'Check in first, then get your AI coaching message.'}
-          </p>
-        </div>
+        <p className="text-sm text-[#8a8680] italic">
+          Tap "Get Message" for personalised AI coaching based on your progress today.
+        </p>
       )}
     </div>
   );
