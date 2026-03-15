@@ -7,37 +7,54 @@ import Science from './pages/Science';
 import History from './pages/History';
 import Settings from './components/Settings';
 
-const tabs = [
-  { to: '/', label: 'Home', icon: '🧠' },
-  { to: '/stats', label: 'Stats', icon: '📊' },
+const navItems = [
+  { to: '/', label: 'Today', icon: '🏠' },
+  { to: '/stats', label: 'Progress', icon: '📊' },
   { to: '/journal', label: 'Journal', icon: '📝' },
-  { to: '/science', label: 'Science', icon: '🔬' },
+  { to: '/science', label: 'Science', icon: '🧬' },
+  { to: '/history', label: 'History', icon: '📅' },
 ];
 
 export default function App() {
   const [showSettings, setShowSettings] = useState(false);
 
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+      isActive
+        ? 'bg-violet-500/10 text-violet-400'
+        : 'text-[#6b6b80] hover:text-[#a0a0b8] hover:bg-white/[0.03]'
+    }`;
+
   return (
     <BrowserRouter>
-      <div className="min-h-full bg-[#faf7f2] flex flex-col">
-        {/* Top bar */}
-        <header className="sticky top-0 z-40 bg-[#faf7f2]/90 backdrop-blur-lg border-b border-[#e8e4de]">
-          <div className="max-w-lg mx-auto flex items-center justify-between px-4 h-12">
-            <NavLink to="/history" className="text-sm font-bold text-[#8a8680] hover:text-[#2d2a26]">
-              📅 History
-            </NavLink>
-            <span className="text-sm font-extrabold text-[#2d2a26]">Brain Check</span>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="text-sm font-bold text-[#8a8680] hover:text-[#2d2a26]"
-            >
-              ⚙️
-            </button>
+      <div className="app-shell">
+        {/* Desktop Sidebar */}
+        <aside className="app-sidebar flex-col bg-[#13131a] border-r border-white/[0.06] p-5 sticky top-0 h-screen">
+          <div className="mb-8">
+            <h1 className="text-lg font-extrabold text-white tracking-tight">Brain Check</h1>
+            <p className="text-[11px] font-semibold text-[#6b6b80] mt-0.5">Dopamine Detox Tracker</p>
           </div>
-        </header>
 
-        {/* Pages */}
-        <main className="flex-1">
+          <nav className="flex-1 space-y-1">
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/'} className={navLinkClass}>
+                <span className="text-lg w-6 text-center">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-[#6b6b80] hover:text-[#a0a0b8] hover:bg-white/[0.03] transition-all w-full mt-4"
+          >
+            <span className="text-lg w-6 text-center">⚙️</span>
+            Settings
+          </button>
+        </aside>
+
+        {/* Main Content */}
+        <main className="app-main pb-24 md:pb-8">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/stats" element={<Stats />} />
@@ -47,30 +64,36 @@ export default function App() {
           </Routes>
         </main>
 
-        {/* Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-[#e8e4de] z-50 pb-[env(safe-area-inset-bottom)]">
-          <div className="flex justify-around items-center max-w-lg mx-auto h-16">
-            {tabs.map((tab) => (
-              <NavLink
-                key={tab.to}
-                to={tab.to}
-                end={tab.to === '/'}
-                className={({ isActive }) =>
-                  `flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all ${
-                    isActive
-                      ? 'text-[#2d2a26] scale-105'
-                      : 'text-[#8a8680] hover:text-[#2d2a26]'
-                  }`
-                }
+        {/* Mobile Bottom Nav */}
+        <nav className="app-bottom-nav fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom)]">
+          <div className="mx-3 mb-2">
+            <div className="bg-[#1a1a24]/95 backdrop-blur-xl border border-white/[0.06] rounded-2xl flex justify-around items-center h-16 px-1">
+              {navItems.slice(0, 4).map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all ${
+                      isActive ? 'text-violet-400' : 'text-[#6b6b80]'
+                    }`
+                  }
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-[10px] font-bold">{item.label}</span>
+                </NavLink>
+              ))}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl text-[#6b6b80]"
               >
-                <span className="text-xl">{tab.icon}</span>
-                <span className="text-[11px] font-semibold">{tab.label}</span>
-              </NavLink>
-            ))}
+                <span className="text-lg">⚙️</span>
+                <span className="text-[10px] font-bold">More</span>
+              </button>
+            </div>
           </div>
         </nav>
 
-        {/* Settings Modal */}
         {showSettings && <Settings onClose={() => setShowSettings(false)} />}
       </div>
     </BrowserRouter>
