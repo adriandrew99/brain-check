@@ -84,7 +84,16 @@ export default function Home() {
           </div>
 
           {/* AI Coach */}
-          <AiMessage data={data} todayLog={{ ...todayLog, healthScore: effectiveHealthScore }} streak={streak} />
+          <AiMessage
+            data={data}
+            todayLog={{ ...todayLog, healthScore: effectiveHealthScore }}
+            streak={streak}
+            onMessageSaved={(msg) => {
+              const updated = { ...todayLog, healthScore: effectiveHealthScore, aiMessage: msg };
+              setTodayLog(updated);
+              saveTodayLog(data, updated);
+            }}
+          />
         </div>
 
         <div className="space-y-5">
@@ -95,12 +104,13 @@ export default function Home() {
               Tick off the rules you held today. These small wins compound into a calmer, sharper brain.
             </p>
             <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1 hide-scrollbar">
-              {RULES.map((rule) => (
+              {RULES.map((rule, index) => (
                 <RuleToggle
                   key={rule.key}
                   rule={rule}
                   checked={todayLog.rules[rule.key]}
                   onToggle={() => handleToggle(rule.key)}
+                  index={index}
                 />
               ))}
             </div>
