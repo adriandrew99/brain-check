@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface BrainCharacterProps {
   healthScore: number;
@@ -8,6 +8,7 @@ interface BrainCharacterProps {
 
 export default function BrainCharacter({ healthScore, size = 200, onTap }: BrainCharacterProps) {
   const [tapped, setTapped] = useState(false);
+  const [animatedScore, setAnimatedScore] = useState(healthScore);
 
   const handleTap = () => {
     setTapped(true);
@@ -15,20 +16,44 @@ export default function BrainCharacter({ healthScore, size = 200, onTap }: Brain
     setTimeout(() => setTapped(false), 300);
   };
 
-  // Colors based on health
-  const brainColor = healthScore >= 70 ? '#e8b4f8' : healthScore >= 40 ? '#d4a0d0' : '#b88a9a';
-  const glowColor = healthScore >= 70 ? '#5ecc8b' : healthScore >= 40 ? '#f0c060' : '#e06060';
-  const cheekColor = healthScore >= 60 ? '#ffb3c6' : 'transparent';
+  // Smoothly animate the brain getting "healthier" as the score changes
+  useEffect(() => {
+    if (animatedScore === healthScore) return;
+
+    const startScore = animatedScore;
+    const diff = healthScore - startScore;
+    const duration = 500;
+    const startTime = performance.now();
+    let frame: number;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      setAnimatedScore(Math.round(startScore + diff * eased));
+      if (t < 1) {
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [healthScore]);
+
+  // Colors based on animated health
+  const brainColor = animatedScore >= 70 ? '#e8b4f8' : animatedScore >= 40 ? '#d4a0d0' : '#b88a9a';
+  const glowColor = animatedScore >= 70 ? '#5ecc8b' : animatedScore >= 40 ? '#f0c060' : '#e06060';
+  const cheekColor = animatedScore >= 60 ? '#ffb3c6' : 'transparent';
 
   // Eye expression
-  const eyeStyle = healthScore >= 70 ? 'happy' : healthScore >= 40 ? 'neutral' : 'sad';
+  const eyeStyle = animatedScore >= 70 ? 'happy' : animatedScore >= 40 ? 'neutral' : 'sad';
 
   // Mouth expression
   const getMouthPath = () => {
-    if (healthScore >= 70) {
+    if (animatedScore >= 70) {
       // Big smile
       return 'M 80 135 Q 100 155 120 135';
-    } else if (healthScore >= 40) {
+    } else if (animatedScore >= 40) {
       // Slight smile
       return 'M 85 138 Q 100 145 115 138';
     } else {
@@ -37,7 +62,7 @@ export default function BrainCharacter({ healthScore, size = 200, onTap }: Brain
     }
   };
 
-  const isGlowing = healthScore >= 70;
+  const isGlowing = animatedScore >= 70;
 
   return (
     <div
@@ -167,7 +192,7 @@ export default function BrainCharacter({ healthScore, size = 200, onTap }: Brain
         />
 
         {/* Sparkles for high score */}
-        {healthScore >= 80 && (
+        {animatedScore >= 80 && (
           <>
             <SparkleIcon x={35} y={55} size={10} delay={0} />
             <SparkleIcon x={160} y={60} size={8} delay={0.5} />
@@ -177,7 +202,7 @@ export default function BrainCharacter({ healthScore, size = 200, onTap }: Brain
         )}
 
         {/* Stink lines for low score */}
-        {healthScore < 25 && (
+        {animatedScore < 25 && (
           <>
             <StinkLine x={50} y={50} />
             <StinkLine x={145} y={55} />

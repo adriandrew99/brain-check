@@ -1,154 +1,134 @@
-import { useState, useCallback } from 'react';
-import ProgressRing from '../components/ProgressRing';
+import { useState, useCallback, useMemo } from 'react';
+import BrainCharacter from '../components/BrainCharacter';
+import HealthBar from '../components/HealthBar';
 import RuleToggle from '../components/RuleToggle';
 import BrainIntelCard from '../components/BrainIntelCard';
 import AiMessage from '../components/AiMessage';
 import StreakCard from '../components/StreakCard';
 import { RULES } from '../constants';
-import {
-  loadData, getTodayLog, saveTodayLog, calculateHealthScore,
-  getCurrentStreak, getDayNumber, getScoreColor, getScoreLabel,
-} from '../store';
+import { loadData, getTodayLog, saveTodayLog, calculateHealthScore, getCurrentStreak, getDayNumber } from '../store';
 import type { RuleKey } from '../types';
 
 export default function Home() {
   const [data, setData] = useState(loadData);
   const [todayLog, setTodayLog] = useState(() => getTodayLog(data));
   const [showShareCard, setShowShareCard] = useState(false);
-  const [justToggled, setJustToggled] = useState(false);
 
   const streak = getCurrentStreak(data);
   const dayNumber = getDayNumber(data);
+
+  const effectiveHealthScore = useMemo(
+    () => calculateHealthScore(todayLog.rules, streak),
+    [todayLog.rules, streak]
+  );
+
+  const handleToggle = useCallback(
+    (key: RuleKey) => {
+      const updated = {
+        ...todayLog,
+        rules: { ...todayLog.rules, [key]: !todayLog.rules[key] },
+      };
+      const healthScore = calculateHealthScore(updated.rules, streak);
+      const updatedWithScore = { ...updated, healthScore };
+      setTodayLog(updatedWithScore);
+      const newData = saveTodayLog(data, updatedWithScore);
+      setData(newData);
+    },
+    [todayLog, data, streak]
+  );
   const rulesHeld = Object.values(todayLog.rules).filter(Boolean).length;
-  const allHeld = rulesHeld === RULES.length;
-  const scoreColor = getScoreColor(todayLog.healthScore);
-
-  const handleToggle = useCallback((key: RuleKey) => {
-    const updated = { ...todayLog, rules: { ...todayLog.rules, [key]: !todayLog.rules[key] } };
-    updated.healthScore = calculateHealthScore(updated.rules, streak);
-    setTodayLog(updated);
-    setData(saveTodayLog(data, updated));
-    setJustToggled(true);
-    setTimeout(() => setJustToggled(false), 400);
-  }, [todayLog, data, streak]);
-
-  const handleAiMessageSaved = useCallback((msg: string) => {
-    const updated = { ...todayLog, aiMessage: msg };
-    setTodayLog(updated);
-    saveTodayLog(data, updated);
-  }, [todayLog, data]);
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="px-4 md:px-6 pt-6 md:pt-8 space-y-5">
+    <div className="px-4 pt-6 pb-24 max-w-4xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="animate-fade-in-up" style={{ opacity: 0 }}>
-        <h1 className="text-2xl md:text-3xl font-extrabold text-white">{greeting}</h1>
-        <p className="text-sm text-[#6b6b80] font-semibold mt-1">
-          Day {dayNumber} of your detox
+      <div className="text-center md:text-left md:flex md:items-baseline md:justify-between md:gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-[#2d2a26]">Brain Check</h1>
+          <p className="text-sm md:text-base text-[#8a8680] font-semibold">
+            Day {dayNumber} · Dopamine Detox
+          </p>
+        </div>
+        <p className="mt-2 md:mt-0 text-xs md:text-sm text-[#8a8680] max-w-sm md:text-right">
+          Each check-in is another rep for your prefrontal cortex. Keep stacking days — your brain
+          literally rewires.
         </p>
       </div>
 
-      {/* Progress + Stats Row */}
-      <div className="md:grid md:grid-cols-2 md:gap-5">
-        {/* Progress Ring Card */}
-        <div className="card p-6 animate-fade-in-up mb-5 md:mb-0" style={{ opacity: 0, animationDelay: '80ms' }}>
-          <div className={`flex justify-center ${justToggled ? 'animate-score-up' : ''}`}>
-            <ProgressRing score={todayLog.healthScore} rulesHeld={rulesHeld} totalRules={RULES.length} />
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:items-start">
+        <div className="space-y-5">
+          {/* Brain Character + Health */}
+          <div className="flex flex-col items-center md:flex-row md:items-center md:gap-6">
+            <div className="flex justify-center md:justify-start">
+              <BrainCharacter healthScore={effectiveHealthScore} size={200} />
+            </div>
+            <div className="w-full md:w-auto md:flex-1 mt-4 md:mt-0">
+              <HealthBar score={effectiveHealthScore} />
+            </div>
           </div>
-          <div className="text-center mt-3">
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider"
-              style={{ backgroundColor: `${scoreColor}15`, color: scoreColor }}
+
+          {/* Streak */}
+          <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-4 border border-[#e8e4de] shadow-sm">
+            <div>
+              <div className="text-sm text-[#8a8680] font-semibold">Current Streak</div>
+              <div className="text-3xl font-extrabold text-[#2d2a26]">
+                {streak} <span className="text-base font-bold text-[#8a8680]">days</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-[#8a8680] font-semibold">Rules Held Today</div>
+              <div className="text-3xl font-extrabold text-[#5ecc8b]">
+                {rulesHeld}
+                <span className="text-base font-bold text-[#8a8680]">/{RULES.length}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Coach */}
+          <AiMessage data={data} todayLog={{ ...todayLog, healthScore: effectiveHealthScore }} streak={streak} />
+        </div>
+
+        <div className="space-y-5">
+          {/* Daily Check-in */}
+          <div className="bg-white rounded-2xl p-5 border border-[#e8e4de] shadow-sm">
+            <h2 className="text-lg font-bold text-[#2d2a26] mb-3">Today's Check-in</h2>
+            <p className="text-xs text-[#8a8680] mb-3">
+              Tick off the rules you held today. These small wins compound into a calmer, sharper brain.
+            </p>
+            <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1 hide-scrollbar">
+              {RULES.map((rule) => (
+                <RuleToggle
+                  key={rule.key}
+                  rule={rule}
+                  checked={todayLog.rules[rule.key]}
+                  onToggle={() => handleToggle(rule.key)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Brain Intel */}
+          <BrainIntelCard dayNumber={dayNumber} />
+
+          {/* Share Card Toggle */}
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowShareCard(!showShareCard)}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#5ecc8b] to-[#4ab87a] text-white font-bold text-sm shadow-sm hover:shadow-md transition-shadow"
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: scoreColor }} />
-              {getScoreLabel(todayLog.healthScore)}
-            </span>
-          </div>
-        </div>
+              {showShareCard ? 'Hide' : '📸 Share'} Streak Card
+            </button>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-5 md:mb-0 animate-fade-in-up" style={{ opacity: 0, animationDelay: '160ms' }}>
-          <div className="card p-4 text-center">
-            <div className="text-2xl mb-0.5">{streak > 0 ? '🔥' : '💤'}</div>
-            <div className="text-2xl font-extrabold text-white">{streak}</div>
-            <div className="text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider">Streak</div>
-          </div>
-          <div className="card p-4 text-center">
-            <div className="text-2xl mb-0.5">{allHeld ? '⭐' : '📋'}</div>
-            <div className="text-2xl font-extrabold" style={{ color: rulesHeld > 0 ? '#22c55e' : '#6b6b80' }}>
-              {rulesHeld}<span className="text-sm text-[#6b6b80]">/{RULES.length}</span>
-            </div>
-            <div className="text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider">Today</div>
-          </div>
-          <div className="card p-4 text-center col-span-2">
-            <div className="flex items-center justify-center gap-3">
-              <div>
-                <div className="text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider mb-1">Day</div>
-                <div className="text-xl font-extrabold text-white">{dayNumber}</div>
+            {showShareCard && (
+              <div className="animate-slide-up">
+                <StreakCard
+                  streak={streak}
+                  healthScore={effectiveHealthScore}
+                  dayNumber={dayNumber}
+                />
               </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
-              <div>
-                <div className="text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider mb-1">Score</div>
-                <div className="text-xl font-extrabold" style={{ color: scoreColor }}>{todayLog.healthScore}</div>
-              </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
-              <div>
-                <div className="text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider mb-1">Best</div>
-                <div className="text-xl font-extrabold text-violet-400">{Math.max(todayLog.healthScore, ...Object.values(data.logs).map(l => l.healthScore || 0))}</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Perfect Day */}
-      {allHeld && (
-        <div className="card-success p-4 text-center animate-fade-in">
-          <span className="text-sm font-bold text-[#22c55e]">Perfect day — all rules locked in 💪</span>
-        </div>
-      )}
-
-      {/* Check-in */}
-      <div className="animate-fade-in-up" style={{ opacity: 0, animationDelay: '240ms' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-extrabold text-white">Daily Check-in</h2>
-          <span className="text-xs font-bold text-[#6b6b80]">
-            {rulesHeld === 0 ? 'Tap to check in' : `${rulesHeld}/${RULES.length}`}
-          </span>
-        </div>
-        <div className="space-y-2">
-          {RULES.map((rule, i) => (
-            <RuleToggle key={rule.key} rule={rule} checked={todayLog.rules[rule.key]} onToggle={() => handleToggle(rule.key)} index={i} />
-          ))}
-        </div>
-      </div>
-
-      {/* AI Coach */}
-      <div className="animate-fade-in-up" style={{ opacity: 0, animationDelay: '320ms' }}>
-        <AiMessage data={data} todayLog={todayLog} streak={streak} onMessageSaved={handleAiMessageSaved} />
-      </div>
-
-      {/* Brain Intel */}
-      <div className="animate-fade-in-up" style={{ opacity: 0, animationDelay: '400ms' }}>
-        <BrainIntelCard dayNumber={dayNumber} />
-      </div>
-
-      {/* Share */}
-      <div className="animate-fade-in-up" style={{ opacity: 0, animationDelay: '480ms' }}>
-        <button
-          onClick={() => setShowShareCard(!showShareCard)}
-          className="w-full py-3.5 rounded-2xl bg-white/[0.06] border border-white/[0.06] text-[#a0a0b8] font-bold text-sm hover:bg-white/[0.08] transition-all active:scale-[0.98]"
-        >
-          {showShareCard ? 'Hide' : '📸 Share Your Streak'}
-        </button>
-        {showShareCard && (
-          <div className="mt-4 animate-slide-up">
-            <StreakCard streak={streak} healthScore={todayLog.healthScore} dayNumber={dayNumber} />
-          </div>
-        )}
       </div>
     </div>
   );
